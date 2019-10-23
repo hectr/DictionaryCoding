@@ -50,37 +50,8 @@ class DictionaryEncodingTests: XCTestCase {
         let encoded1 = try encoder.encode(date) as [String:Any]
         XCTAssertEqual(encoded1["date"] as? TimeInterval, 123456.789)
         
-        encoder.dateEncodingStrategy = .iso8601
-        let encoded2 = try encoder.encode(date) as [String:Any]
-        XCTAssertEqual(encoded2["date"] as? String, "2001-01-02T10:17:36Z")
-        
-        encoder.dateEncodingStrategy = .millisecondsSince1970
-        let encoded3 = try encoder.encode(date) as [String:Any]
-        XCTAssertEqual(encoded3["date"] as? Double, 978430656789.0)
-        
-        encoder.dateEncodingStrategy = .secondsSince1970
-        let encoded4 = try encoder.encode(date) as [String:Any]
-        XCTAssertEqual(encoded4["date"] as? Double, 978430656.78900003)
-        
-        encoder.dateEncodingStrategy = .deferredToDate
         let encoded5 = try encoder.encode(date) as [String:Any]
         XCTAssertEqual(encoded5["date"] as? TimeInterval, 123456.789)
-        
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US")
-        formatter.setLocalizedDateFormatFromTemplate("MMMMd")
-        encoder.dateEncodingStrategy = .formatted(formatter)
-        let encoded6 = try encoder.encode(date) as [String:Any]
-        XCTAssertEqual(encoded6["date"] as? String, "January 2")
-        
-        var customEncoderCalled = false
-        encoder.dateEncodingStrategy = .custom({ (date, encoder) in
-            customEncoderCalled = true
-            try "some custom encoding".encode(to: encoder)
-        })
-        let encoded7 = try encoder.encode(date) as [String:Any]
-        XCTAssertEqual(encoded7["date"] as? String, "some custom encoding")
-        XCTAssertEqual(customEncoderCalled, true)
     }
     
     func testEncodingDataFormats() throws {

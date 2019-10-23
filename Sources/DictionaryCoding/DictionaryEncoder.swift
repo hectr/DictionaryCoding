@@ -29,30 +29,6 @@ import Foundation
 open class DictionaryEncoder {
     // MARK: Options
 
-    /// The strategy to use for encoding `Date` values.
-    public enum DateEncodingStrategy {
-        /// Defer to `Date` for choosing an encoding. This is the default strategy.
-        case deferredToDate
-
-        /// Encode the `Date` as a UNIX timestamp (as a Dictionary number).
-        case secondsSince1970
-
-        /// Encode the `Date` as UNIX millisecond timestamp (as a Dictionary number).
-        case millisecondsSince1970
-
-        /// Encode the `Date` as an ISO-8601-formatted string (in RFC 3339 format).
-        @available(OSX 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *)
-        case iso8601
-
-        /// Encode the `Date` as a string formatted by the given formatter.
-        case formatted(DateFormatter)
-
-        /// Encode the `Date` as a custom value encoded by the given closure.
-        ///
-        /// If the closure fails to encode a value into the given encoder, the encoder will encode an empty automatic container in its place.
-        case custom((Date, Encoder) throws -> Void)
-    }
-
     /// The strategy to use for encoding `Data` values.
     public enum DataEncodingStrategy {
         /// Defer to `Data` for choosing an encoding.
@@ -152,9 +128,6 @@ open class DictionaryEncoder {
         }
     }
 
-    /// The strategy to use in encoding dates. Defaults to `.deferredToDate`.
-    open var dateEncodingStrategy: DateEncodingStrategy = .deferredToDate
-
     /// The strategy to use in encoding binary data. Defaults to `.base64`.
     open var dataEncodingStrategy: DataEncodingStrategy = .base64
 
@@ -169,7 +142,6 @@ open class DictionaryEncoder {
 
     /// Options set on the top-level encoder to pass down the encoding hierarchy.
     fileprivate struct _Options {
-        let dateEncodingStrategy: DateEncodingStrategy
         let dataEncodingStrategy: DataEncodingStrategy
         let nonConformingFloatEncodingStrategy: NonConformingFloatEncodingStrategy
         let keyEncodingStrategy: KeyEncodingStrategy
@@ -178,8 +150,7 @@ open class DictionaryEncoder {
 
     /// The options set on the top-level encoder.
     fileprivate var options: _Options {
-        return _Options(dateEncodingStrategy: dateEncodingStrategy,
-                        dataEncodingStrategy: dataEncodingStrategy,
+        return _Options(dataEncodingStrategy: dataEncodingStrategy,
                         nonConformingFloatEncodingStrategy: nonConformingFloatEncodingStrategy,
                         keyEncodingStrategy: keyEncodingStrategy,
                         userInfo: userInfo)
@@ -711,50 +682,10 @@ extension _DictionaryEncoder {
     }
 
     fileprivate func box(_ date: Date) throws -> NSObject {
-        switch self.options.dateEncodingStrategy {
-        case .deferredToDate:
-            // Must be called with a surrounding with(pushedKey:) call.
-            // Dates encode as single-value objects; this can't both throw and push a container, so no need to catch the error.
-            try date.encode(to: self)
-            return self.storage.popContainer()
-
-        case .secondsSince1970:
-            return NSNumber(value: date.timeIntervalSince1970)
-
-        case .millisecondsSince1970:
-            return NSNumber(value: 1000.0 * date.timeIntervalSince1970)
-
-        case .iso8601:
-            if #available(OSX 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
-                return NSString(string: _iso8601Formatter.string(from: date))
-            } else {
-                fatalError("ISO8601DateFormatter is unavailable on this platform.")
-            }
-
-        case .formatted(let formatter):
-            return NSString(string: formatter.string(from: date))
-
-        case .custom(let closure):
-            let depth = self.storage.count
-            do {
-                try closure(date, self)
-            } catch {
-                // If the value pushed a container before throwing, pop it back off to restore state.
-                if self.storage.count > depth {
-                    let _ = self.storage.popContainer()
-                }
-
-                throw error
-            }
-
-            guard self.storage.count > depth else {
-                // The closure didn't encode anything. Return the default keyed container.
-                return NSDictionary()
-            }
-
-            // We can pop because the closure encoded something.
-            return self.storage.popContainer()
-        }
+        // Must be called with a surrounding with(pushedKey:) call.
+        // Dates encode as single-value objects; this can't both throw and push a container, so no need to catch the error.
+        try date.encode(to: self)
+        return self.storage.popContainer()
     }
 
     fileprivate func box(_ data: Data) throws -> NSObject {
