@@ -27,19 +27,7 @@ import Foundation
 /// `DictionaryDecoder` facilitates the decoding of Dictionary into semantic `Decodable` types.
 open class DictionaryDecoder {
     // MARK: Options
-    
-    /// The strategy to use for decoding `Data` values.
-    public enum DataDecodingStrategy {
-        /// Defer to `Data` for decoding.
-        case deferredToData
-        
-        /// Decode the `Data` from a Base64-encoded string. This is the default strategy.
-        case base64
-        
-        /// Decode the `Data` as a custom value decoded by the given closure.
-        case custom((_ decoder: Decoder) throws -> Data)
-    }
-    
+
     /// The strategy to use for non-Dictionary-conforming floating-point values (IEEE 754 infinity and NaN).
     public enum NonConformingFloatDecodingStrategy {
         /// Throw upon encountering non-conforming values. This is the default strategy.
@@ -134,9 +122,6 @@ open class DictionaryDecoder {
     /// The strategy to use when values are missing.
     open var missingValueDecodingStrategy : MissingValueDecodingStrategy = .`throw`
 
-    /// The strategy to use in decoding binary data. Defaults to `.base64`.
-    open var dataDecodingStrategy: DataDecodingStrategy = .base64
-    
     /// The strategy to use in decoding non-conforming numbers. Defaults to `.throw`.
     open var nonConformingFloatDecodingStrategy: NonConformingFloatDecodingStrategy = .throw
     
@@ -149,7 +134,6 @@ open class DictionaryDecoder {
     /// Options set on the top-level encoder to pass down the decoding hierarchy.
     fileprivate struct _Options {
         let missingValueDecodingStrategy : MissingValueDecodingStrategy
-        let dataDecodingStrategy: DataDecodingStrategy
         let nonConformingFloatDecodingStrategy: NonConformingFloatDecodingStrategy
         let keyDecodingStrategy: KeyDecodingStrategy
         let userInfo: [CodingUserInfoKey : Any]
@@ -182,7 +166,6 @@ open class DictionaryDecoder {
         }
         
         return _Options(missingValueDecodingStrategy: adjustedMissingStrategy,
-                        dataDecodingStrategy: dataDecodingStrategy,
                         nonConformingFloatDecodingStrategy: nonConformingFloatDecodingStrategy,
                         keyDecodingStrategy: keyDecodingStrategy,
                         userInfo: userInfo)
@@ -1221,29 +1204,10 @@ extension _DictionaryDecoder {
     
     fileprivate func unbox(_ value: Any, as type: Data.Type) throws -> Data? {
         guard !(value is NSNull) else { return nil }
-        
-        switch self.options.dataDecodingStrategy {
-        case .deferredToData:
-            self.storage.push(container: value)
-            defer { self.storage.popContainer() }
-            return try Data(from: self)
-            
-        case .base64:
-            guard let string = value as? String else {
-                throw DecodingError._typeMismatch(at: self.codingPath, expectation: type, reality: value)
-            }
-            
-            guard let data = Data(base64Encoded: string) else {
-                throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: self.codingPath, debugDescription: "Encountered Data is not valid Base64."))
-            }
-            
-            return data
-            
-        case .custom(let closure):
-            self.storage.push(container: value)
-            defer { self.storage.popContainer() }
-            return try closure(self)
-        }
+
+        self.storage.push(container: value)
+        defer { self.storage.popContainer() }
+        return try Data(from: self)
     }
     
     fileprivate func unbox(_ value: Any, as type: Decimal.Type) throws -> Decimal? {

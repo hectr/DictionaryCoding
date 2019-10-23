@@ -4,7 +4,7 @@ import XCTest
 class DictionaryDecodingTests: XCTestCase {
     
     func testDecodingAllTheTypes() throws {
-        let encoded : [String:Any] = ["uint32": 123456, "data": "dGVzdA==", "int16": -12345, "int64": -123456789, "uint8": 123, "date": 123456.789, "uint": 123456, "int": -123456, "int8": -123, "bool": 1, "int32": -123456, "double": 12345.6789, "uint64": 123456789, "float": 123.456, "uint16": 12345, "string": "blah"]
+        let encoded : [String:Any] = ["uint32": 123456, "data": [98, 108, 97, 104], "int16": -12345, "int64": -123456789, "uint8": 123, "date": 123456.789, "uint": 123456, "int": -123456, "int8": -123, "bool": 1, "int32": -123456, "double": 12345.6789, "uint64": 123456789, "float": 123.456, "uint16": 12345, "string": "blah"]
         
         let decoder = DictionaryDecoder()
         let decoded = try decoder.decode(AllTheTypes.self, from: encoded)
