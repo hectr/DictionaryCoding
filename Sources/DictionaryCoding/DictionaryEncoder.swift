@@ -29,20 +29,6 @@ import Foundation
 open class DictionaryEncoder {
     // MARK: Options
 
-    /// The strategy to use for encoding `Data` values.
-    public enum DataEncodingStrategy {
-        /// Defer to `Data` for choosing an encoding.
-        case deferredToData
-
-        /// Encoded the `Data` as a Base64-encoded string. This is the default strategy.
-        case base64
-
-        /// Encode the `Data` as a custom value encoded by the given closure.
-        ///
-        /// If the closure fails to encode a value into the given encoder, the encoder will encode an empty automatic container in its place.
-        case custom((Data, Encoder) throws -> Void)
-    }
-
     /// The strategy to use for non-Dictionary-conforming floating-point values (IEEE 754 infinity and NaN).
     public enum NonConformingFloatEncodingStrategy {
         /// Throw upon encountering non-conforming values. This is the default strategy.
@@ -128,9 +114,6 @@ open class DictionaryEncoder {
         }
     }
 
-    /// The strategy to use in encoding binary data. Defaults to `.base64`.
-    open var dataEncodingStrategy: DataEncodingStrategy = .base64
-
     /// The strategy to use in encoding non-conforming numbers. Defaults to `.throw`.
     open var nonConformingFloatEncodingStrategy: NonConformingFloatEncodingStrategy = .throw
 
@@ -142,7 +125,6 @@ open class DictionaryEncoder {
 
     /// Options set on the top-level encoder to pass down the encoding hierarchy.
     fileprivate struct _Options {
-        let dataEncodingStrategy: DataEncodingStrategy
         let nonConformingFloatEncodingStrategy: NonConformingFloatEncodingStrategy
         let keyEncodingStrategy: KeyEncodingStrategy
         let userInfo: [CodingUserInfoKey : Any]
@@ -150,8 +132,7 @@ open class DictionaryEncoder {
 
     /// The options set on the top-level encoder.
     fileprivate var options: _Options {
-        return _Options(dataEncodingStrategy: dataEncodingStrategy,
-                        nonConformingFloatEncodingStrategy: nonConformingFloatEncodingStrategy,
+        return _Options(nonConformingFloatEncodingStrategy: nonConformingFloatEncodingStrategy,
                         keyEncodingStrategy: keyEncodingStrategy,
                         userInfo: userInfo)
     }
@@ -689,48 +670,21 @@ extension _DictionaryEncoder {
     }
 
     fileprivate func box(_ data: Data) throws -> NSObject {
-        switch self.options.dataEncodingStrategy {
-        case .deferredToData:
-            // Must be called with a surrounding with(pushedKey:) call.
-            let depth = self.storage.count
-            do {
-                try data.encode(to: self)
-            } catch {
-                // If the value pushed a container before throwing, pop it back off to restore state.
-                // This shouldn't be possible for Data (which encodes as an array of bytes), but it can't hurt to catch a failure.
-                if self.storage.count > depth {
-                    let _ = self.storage.popContainer()
-                }
-
-                throw error
+        // Must be called with a surrounding with(pushedKey:) call.
+        let depth = self.storage.count
+        do {
+            try data.encode(to: self)
+        } catch {
+            // If the value pushed a container before throwing, pop it back off to restore state.
+            // This shouldn't be possible for Data (which encodes as an array of bytes), but it can't hurt to catch a failure.
+            if self.storage.count > depth {
+                let _ = self.storage.popContainer()
             }
 
-            return self.storage.popContainer()
-
-        case .base64:
-            return NSString(string: data.base64EncodedString())
-
-        case .custom(let closure):
-            let depth = self.storage.count
-            do {
-                try closure(data, self)
-            } catch {
-                // If the value pushed a container before throwing, pop it back off to restore state.
-                if self.storage.count > depth {
-                    let _ = self.storage.popContainer()
-                }
-
-                throw error
-            }
-
-            guard self.storage.count > depth else {
-                // The closure didn't encode anything. Return the default keyed container.
-                return NSDictionary()
-            }
-
-            // We can pop because the closure encoded something.
-            return self.storage.popContainer()
+            throw error
         }
+
+        return self.storage.popContainer()
     }
 
     fileprivate func box<T : Encodable>(_ value: T) throws -> NSObject {

@@ -57,22 +57,9 @@ class DictionaryEncodingTests: XCTestCase {
     func testEncodingDataFormats() throws {
         let data = JustData(data: "blah".data(using: String.Encoding.utf8)!)
         let encoder = DictionaryEncoder()
-        encoder.dataEncodingStrategy = .base64
-        let encoded1 = try encoder.encode(data) as [String:Any]
-        XCTAssertEqual(encoded1["data"] as? String, "YmxhaA==")
-        
-        encoder.dataEncodingStrategy = .deferredToData
+
         let encoded2 = try encoder.encode(data) as [String:Any]
         XCTAssertEqual(encoded2["data"] as! [Int8], [98, 108, 97, 104])
-        
-        var customEncoderCalled = false
-        encoder.dataEncodingStrategy = .custom({ (date, encoder) in
-            customEncoderCalled = true
-            try "some custom encoding".encode(to: encoder)
-        })
-        let encoded3 = try encoder.encode(data) as [String:Any]
-        XCTAssertEqual(encoded3["data"] as? String, "some custom encoding")
-        XCTAssertEqual(customEncoderCalled, true)
     }
     
     func testEncodingAllTheTypes() throws {
@@ -84,7 +71,7 @@ class DictionaryEncodingTests: XCTestCase {
             float: 123.456, double: 12345.6789,
             bool: true,
             date: date,
-            data: "test".data(using: String.Encoding.utf8)!
+            data: "blah".data(using: String.Encoding.utf8)!
         )
         let encoder = DictionaryEncoder()
         let encoded = try encoder.encode(test) as [String:Any]
@@ -103,7 +90,7 @@ class DictionaryEncodingTests: XCTestCase {
         XCTAssertEqual(encoded["double"] as? Double, 12345.6789)
         XCTAssertEqual(encoded["bool"] as? Bool, true)
         XCTAssertEqual(encoded["date"] as? Double, 123456.789)
-        XCTAssertEqual(encoded["data"] as? String, "dGVzdA==")
+        XCTAssertEqual(encoded["data"] as? [Int8], [98, 108, 97, 104])
     }
   
     func testEncodingAsNSDictionary() throws {
