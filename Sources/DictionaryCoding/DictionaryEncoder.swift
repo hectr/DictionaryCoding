@@ -196,7 +196,7 @@ fileprivate struct _DictionaryEncodingStorage {
     // MARK: Properties
     /// The container stack.
     /// Elements may be any one of the Dictionary types (NSNull, NSNumber, NSString, NSArray, NSDictionary).
-    private(set) fileprivate var containers: [NSObject] = []
+    private(set) fileprivate var containers: [AnyObject] = []
 
     // MARK: - Initialization
     /// Initializes `self` with no containers.
@@ -219,11 +219,11 @@ fileprivate struct _DictionaryEncodingStorage {
         return array
     }
 
-    fileprivate mutating func push(container: NSObject) {
+    fileprivate mutating func push(container: AnyObject) {
         self.containers.append(container)
     }
 
-    fileprivate mutating func popContainer() -> NSObject {
+    fileprivate mutating func popContainer() -> AnyObject {
         precondition(self.containers.count > 0, "Empty container stack.")
         return self.containers.popLast()!
     }
@@ -515,20 +515,20 @@ extension _DictionaryEncoder : SingleValueEncodingContainer {
 // MARK: - Concrete Value Representations
 extension _DictionaryEncoder {
     /// Returns the given value boxed in a container appropriate for pushing onto the container stack.
-    fileprivate func box(_ value: Bool)   -> NSObject { return NSNumber(value: value) }
-    fileprivate func box(_ value: Int)    -> NSObject { return NSNumber(value: value) }
-    fileprivate func box(_ value: Int8)   -> NSObject { return NSNumber(value: value) }
-    fileprivate func box(_ value: Int16)  -> NSObject { return NSNumber(value: value) }
-    fileprivate func box(_ value: Int32)  -> NSObject { return NSNumber(value: value) }
-    fileprivate func box(_ value: Int64)  -> NSObject { return NSNumber(value: value) }
-    fileprivate func box(_ value: UInt)   -> NSObject { return NSNumber(value: value) }
-    fileprivate func box(_ value: UInt8)  -> NSObject { return NSNumber(value: value) }
-    fileprivate func box(_ value: UInt16) -> NSObject { return NSNumber(value: value) }
-    fileprivate func box(_ value: UInt32) -> NSObject { return NSNumber(value: value) }
-    fileprivate func box(_ value: UInt64) -> NSObject { return NSNumber(value: value) }
-    fileprivate func box(_ value: String) -> NSObject { return NSString(string: value) }
+    fileprivate func box(_ value: Bool)   -> AnyObject { return NSNumber(value: value) }
+    fileprivate func box(_ value: Int)    -> AnyObject { return NSNumber(value: value) }
+    fileprivate func box(_ value: Int8)   -> AnyObject { return NSNumber(value: value) }
+    fileprivate func box(_ value: Int16)  -> AnyObject { return NSNumber(value: value) }
+    fileprivate func box(_ value: Int32)  -> AnyObject { return NSNumber(value: value) }
+    fileprivate func box(_ value: Int64)  -> AnyObject { return NSNumber(value: value) }
+    fileprivate func box(_ value: UInt)   -> AnyObject { return NSNumber(value: value) }
+    fileprivate func box(_ value: UInt8)  -> AnyObject { return NSNumber(value: value) }
+    fileprivate func box(_ value: UInt16) -> AnyObject { return NSNumber(value: value) }
+    fileprivate func box(_ value: UInt32) -> AnyObject { return NSNumber(value: value) }
+    fileprivate func box(_ value: UInt64) -> AnyObject { return NSNumber(value: value) }
+    fileprivate func box(_ value: String) -> AnyObject { return NSString(string: value) }
 
-    fileprivate func box(_ float: Float) throws -> NSObject {
+    fileprivate func box(_ float: Float) throws -> AnyObject {
         guard !float.isInfinite && !float.isNaN else {
             guard case let .convertToString(positiveInfinity: posInfString,
                                             negativeInfinity: negInfString,
@@ -548,7 +548,7 @@ extension _DictionaryEncoder {
         return NSNumber(value: float)
     }
 
-    fileprivate func box(_ double: Double) throws -> NSObject {
+    fileprivate func box(_ double: Double) throws -> AnyObject {
         guard !double.isInfinite && !double.isNaN else {
             guard case let .convertToString(positiveInfinity: posInfString,
                                             negativeInfinity: negInfString,
@@ -568,14 +568,14 @@ extension _DictionaryEncoder {
         return NSNumber(value: double)
     }
 
-    fileprivate func box(_ date: Date) throws -> NSObject {
+    fileprivate func box(_ date: Date) throws -> AnyObject {
         // Must be called with a surrounding with(pushedKey:) call.
         // Dates encode as single-value objects; this can't both throw and push a container, so no need to catch the error.
         try date.encode(to: self)
         return self.storage.popContainer()
     }
 
-    fileprivate func box(_ data: Data) throws -> NSObject {
+    fileprivate func box(_ data: Data) throws -> AnyObject {
         // Must be called with a surrounding with(pushedKey:) call.
         let depth = self.storage.count
         do {
@@ -593,12 +593,12 @@ extension _DictionaryEncoder {
         return self.storage.popContainer()
     }
 
-    fileprivate func box<T : Encodable>(_ value: T) throws -> NSObject {
+    fileprivate func box<T : Encodable>(_ value: T) throws -> AnyObject {
         return try self.box_(value) ?? NSDictionary()
     }
 
     // This method is called "box_" instead of "box" to disambiguate it from the overloads. Because the return type here is different from all of the "box" overloads (and is more general), any "box" calls in here would call back into "box" recursively instead of calling the appropriate overload, which is not what we want.
-    fileprivate func box_<T : Encodable>(_ value: T) throws -> NSObject? {
+    fileprivate func box_<T : Encodable>(_ value: T) throws -> AnyObject? {
         if T.self == Date.self || T.self == NSDate.self {
             // Respect Date encoding strategy
             return try self.box((value as! Date))
