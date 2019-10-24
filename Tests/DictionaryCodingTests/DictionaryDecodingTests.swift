@@ -127,7 +127,7 @@ class DictionaryDecodingTests: XCTestCase {
         let decoder = DictionaryDecoder()
         
         let defaults : [String:Any] = [ "String" : "default", "Int" : 123, "Bool" : true, "Double" : 123.456 ]
-        decoder.missingValueDecodingStrategy = .useDefault(defaults: defaults)
+        decoder.missingValueDecodingStrategy = .useDefault(defaults: { defaults["\($0)"] ?? Void() })
         
         let decoded = try decoder.decode(Test.self, from: dict)
         

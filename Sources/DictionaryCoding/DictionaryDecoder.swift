@@ -46,8 +46,8 @@ open class DictionaryDecoder {
         case useStandardDefault
         
         /// Attempt to use a default value when encountering missing values.
-        /// The default value is read from the associated dictionary, keyed by the name of the type.
-        case useDefault(defaults : [String:Any])
+        /// The default value is read from the associated closure.
+        case useDefault(defaults: (Any.Type) throws -> Any)
     }
     
     /// The strategy to use for automatically changing the value of keys before decoding.
@@ -162,7 +162,7 @@ open class DictionaryDecoder {
                 "Data" : Data()
             ]
             
-            adjustedMissingStrategy = .useDefault(defaults: standardDefaults)
+            adjustedMissingStrategy = .useDefault(defaults: { standardDefaults["\($0)"] ?? Void() })
         }
         
         return _Options(missingValueDecodingStrategy: adjustedMissingStrategy,
@@ -376,8 +376,7 @@ fileprivate struct DictionaryCodingKeyedDecodingContainer<K : CodingKey> : Keyed
         guard let entry = self.container[key.stringValue] else {
             switch (decoder.options.missingValueDecodingStrategy) {
             case let .useDefault(defaults):
-                let defaultKey = "\(type)"
-                if let def = defaults[defaultKey] as? T {
+                if let def = try defaults(type) as? T {
                     return def
                 }
                 default:
