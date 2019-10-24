@@ -91,7 +91,27 @@ class DictionaryDecodingTests: XCTestCase {
         let dict : [String:Any] = [:]
         
         let decoder = DictionaryDecoder()
-        decoder.missingValueDecodingStrategy = .useStandardDefault
+        decoder.missingValueDecodingStrategy = .useDefault(defaults: { type in
+            let standardDefaults : [String:Any] = [
+                "Int" : 0,
+                "Int8" : Int8(0),
+                "Int16" : Int16(0),
+                "Int32" : Int32(0),
+                "Int64" : Int64(0),
+                "UInt" : UInt(0),
+                "UInt8" : UInt8(0),
+                "UInt16" : UInt16(0),
+                "UInt32" : UInt32(0),
+                "UInt64" : UInt64(0),
+                "Float" : Float(0.0),
+                "Double" : 0.0,
+                "String" : "",
+                "Bool" : false,
+                "Date" : Date(timeIntervalSinceReferenceDate: 0),
+                "Data" : Data()
+            ]
+            return standardDefaults["\(type)"]
+        })
         
         let decoded = try decoder.decode(AllTheTypes.self, from: dict)
         

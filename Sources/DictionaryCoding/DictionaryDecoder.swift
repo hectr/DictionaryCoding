@@ -47,10 +47,7 @@ open class DictionaryDecoder {
     public enum MissingValueDecodingStrategy {
         /// Throw upon encountering missing values.
         case `throw`
-        
-        /// Attempt to use a default value when encountering missing values for standard types.
-        case useStandardDefault
-        
+
         /// Attempt to use a default value when encountering missing values.
         /// The default value is read from the associated closure.
         case useDefault(defaults: (Any.Type) throws -> Any)
@@ -147,31 +144,7 @@ open class DictionaryDecoder {
     
     /// The options set on the top-level decoder.
     fileprivate var options: _Options {
-        var adjustedMissingStrategy = missingValueDecodingStrategy
-        if case .useStandardDefault = adjustedMissingStrategy {
-            let standardDefaults : [String:Any] = [
-                "Int" : 0,
-                "Int8" : Int8(0),
-                "Int16" : Int16(0),
-                "Int32" : Int32(0),
-                "Int64" : Int64(0),
-                "UInt" : UInt(0),
-                "UInt8" : UInt8(0),
-                "UInt16" : UInt16(0),
-                "UInt32" : UInt32(0),
-                "UInt64" : UInt64(0),
-                "Float" : Float(0.0),
-                "Double" : 0.0,
-                "String" : "",
-                "Bool" : false,
-                "Date" : Date(timeIntervalSinceReferenceDate: 0),
-                "Data" : Data()
-            ]
-            
-            adjustedMissingStrategy = .useDefault(defaults: { standardDefaults["\($0)"] ?? Void() })
-        }
-        
-        return _Options(missingValueDecodingStrategy: adjustedMissingStrategy,
+        return _Options(missingValueDecodingStrategy: missingValueDecodingStrategy,
                         nonConformingFloatDecodingStrategy: nonConformingFloatDecodingStrategy,
                         keyDecodingStrategy: keyDecodingStrategy,
                         userInfo: userInfo)
