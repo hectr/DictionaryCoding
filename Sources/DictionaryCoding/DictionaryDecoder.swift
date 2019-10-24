@@ -26,6 +26,12 @@ import Foundation
 //===----------------------------------------------------------------------===//
 /// `DictionaryDecoder` facilitates the decoding of Dictionary into semantic `Decodable` types.
 open class DictionaryDecoder {
+    // MARK: Custom error
+    public struct KeyNotFoundError: Error {
+        let key: CodingKey
+        let type: Any.Type
+    }
+
     // MARK: Options
 
     /// The strategy to use for non-Dictionary-conforming floating-point values (IEEE 754 infinity and NaN).
@@ -351,10 +357,20 @@ fileprivate struct DictionaryCodingKeyedDecodingContainer<K : CodingKey> : Keyed
         return self.container[key.stringValue] != nil
     }
     
+    internal func notFoundError(key: Key, type: Any.Type) -> Swift.Error {
+        let underlyingError = DictionaryDecoder.KeyNotFoundError(key: key, type: type)
+        let context = DecodingError.Context(
+            codingPath: self.decoder.codingPath,
+            debugDescription: "No value associated with key \(_errorDescription(of: key)).",
+            underlyingError: underlyingError
+        )
+        return DecodingError.keyNotFound(key, context)
+    }
+
     internal func notFoundError(key: Key) -> DecodingError {
         return DecodingError.keyNotFound(key, DecodingError.Context(codingPath: self.decoder.codingPath, debugDescription: "No value associated with key \(_errorDescription(of: key))."))
     }
-    
+
     internal func nullFoundError<T>(type: T.Type) -> DecodingError {
         return DecodingError.valueNotFound(type, DecodingError.Context(codingPath: self.decoder.codingPath, debugDescription: "Expected \(type) value but found null instead."))
     }
@@ -383,7 +399,7 @@ fileprivate struct DictionaryCodingKeyedDecodingContainer<K : CodingKey> : Keyed
                     break
             }
 
-            throw notFoundError(key: key)
+            throw notFoundError(key: key, type: type)
         }
         
         self.decoder.codingPath.append(key)
@@ -401,9 +417,13 @@ fileprivate struct DictionaryCodingKeyedDecodingContainer<K : CodingKey> : Keyed
         defer { self.decoder.codingPath.removeLast() }
         
         guard let value = self.container[key.stringValue] else {
-            throw DecodingError.keyNotFound(key,
-                                            DecodingError.Context(codingPath: self.codingPath,
-                                                                  debugDescription: "Cannot get \(KeyedDecodingContainer<NestedKey>.self) -- no value found for key \(_errorDescription(of: key))"))
+            let underlyingError = DictionaryDecoder.KeyNotFoundError(key: key, type: type)
+            let context = DecodingError.Context(
+                codingPath: self.codingPath,
+                debugDescription: "Cannot get \(KeyedDecodingContainer<NestedKey>.self) -- no value found for key \(_errorDescription(of: key))",
+                underlyingError: underlyingError
+            )
+            throw DecodingError.keyNotFound(key, context)
         }
         
         guard let dictionary = value as? [String : Any] else {
