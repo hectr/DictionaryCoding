@@ -52,85 +52,13 @@ open class DictionaryDecoder {
         /// The default value is read from the associated closure.
         case useDefault(defaults: (Any.Type) throws -> Any)
     }
-    
-    /// The strategy to use for automatically changing the value of keys before decoding.
-    public enum KeyDecodingStrategy {
-        /// Use the keys specified by each type. This is the default strategy.
-        case useDefaultKeys
-        
-        /// Convert from "snake_case_keys" to "camelCaseKeys" before attempting to match a key with the one specified by each type.
-        ///
-        /// The conversion to upper case uses `Locale.system`, also known as the ICU "root" locale. This means the result is consistent regardless of the current user's locale and language preferences.
-        ///
-        /// Converting from snake case to camel case:
-        /// 1. Capitalizes the word starting after each `_`
-        /// 2. Removes all `_`
-        /// 3. Preserves starting and ending `_` (as these are often used to indicate private variables or other metadata).
-        /// For example, `one_two_three` becomes `oneTwoThree`. `_one_two_three_` becomes `_oneTwoThree_`.
-        ///
-        /// - Note: Using a key decoding strategy has a nominal performance cost, as each string key has to be inspected for the `_` character.
-        case convertFromSnakeCase
-        
-        /// Provide a custom conversion from the key in the encoded Dictionary to the keys specified by the decoded types.
-        /// The full path to the current decoding position is provided for context (in case you need to locate this key within the payload). The returned key is used in place of the last component in the coding path before decoding.
-        /// If the result of the conversion is a duplicate key, then only one value will be present in the container for the type to decode from.
-        case custom((_ codingPath: [CodingKey]) -> CodingKey)
-        
-        fileprivate static func _convertFromSnakeCase(_ stringKey: String) -> String {
-            guard !stringKey.isEmpty else { return stringKey }
-            
-            // Find the first non-underscore character
-            guard let firstNonUnderscore = stringKey.index(where: { $0 != "_" }) else {
-                // Reached the end without finding an _
-                return stringKey
-            }
-            
-            // Find the last non-underscore character
-            var lastNonUnderscore = stringKey.index(before: stringKey.endIndex)
-            while lastNonUnderscore > firstNonUnderscore && stringKey[lastNonUnderscore] == "_" {
-                stringKey.formIndex(before: &lastNonUnderscore);
-            }
-            
-            let keyRange = firstNonUnderscore...lastNonUnderscore
-            let leadingUnderscoreRange = stringKey.startIndex..<firstNonUnderscore
-            let trailingUnderscoreRange = stringKey.index(after: lastNonUnderscore)..<stringKey.endIndex
-            
-            var components = stringKey[keyRange].split(separator: "_")
-            let joinedString : String
-            if components.count == 1 {
-                // No underscores in key, leave the word as is - maybe already camel cased
-                joinedString = String(stringKey[keyRange])
-            } else {
-                joinedString = ([components[0].lowercased()] + components[1...].map { $0.capitalized }).joined()
-            }
-            
-            // Do a cheap isEmpty check before creating and appending potentially empty strings
-            let result : String
-            if (leadingUnderscoreRange.isEmpty && trailingUnderscoreRange.isEmpty) {
-                result = joinedString
-            } else if (!leadingUnderscoreRange.isEmpty && !trailingUnderscoreRange.isEmpty) {
-                // Both leading and trailing underscores
-                result = String(stringKey[leadingUnderscoreRange]) + joinedString + String(stringKey[trailingUnderscoreRange])
-            } else if (!leadingUnderscoreRange.isEmpty) {
-                // Just leading
-                result = String(stringKey[leadingUnderscoreRange]) + joinedString
-            } else {
-                // Just trailing
-                result = joinedString + String(stringKey[trailingUnderscoreRange])
-            }
-            return result
-        }
-    }
-    
+
     /// The strategy to use when values are missing.
     open var missingValueDecodingStrategy : MissingValueDecodingStrategy = .`throw`
 
     /// The strategy to use in decoding non-conforming numbers. Defaults to `.throw`.
     open var nonConformingFloatDecodingStrategy: NonConformingFloatDecodingStrategy = .throw
-    
-    /// The strategy to use for decoding keys. Defaults to `.useDefaultKeys`.
-    open var keyDecodingStrategy: KeyDecodingStrategy = .useDefaultKeys
-    
+
     /// Contextual user-provided information for use during decoding.
     open var userInfo: [CodingUserInfoKey : Any] = [:]
     
@@ -138,7 +66,6 @@ open class DictionaryDecoder {
     fileprivate struct _Options {
         let missingValueDecodingStrategy : MissingValueDecodingStrategy
         let nonConformingFloatDecodingStrategy: NonConformingFloatDecodingStrategy
-        let keyDecodingStrategy: KeyDecodingStrategy
         let userInfo: [CodingUserInfoKey : Any]
     }
     
@@ -146,7 +73,6 @@ open class DictionaryDecoder {
     fileprivate var options: _Options {
         return _Options(missingValueDecodingStrategy: missingValueDecodingStrategy,
                         nonConformingFloatDecodingStrategy: nonConformingFloatDecodingStrategy,
-                        keyDecodingStrategy: keyDecodingStrategy,
                         userInfo: userInfo)
     }
     
@@ -300,20 +226,7 @@ fileprivate struct DictionaryCodingKeyedDecodingContainer<K : CodingKey> : Keyed
     /// Initializes `self` by referencing the given decoder and container.
     fileprivate init(referencing decoder: _DictionaryDecoder, wrapping container: [String : Any]) {
         self.decoder = decoder
-        switch decoder.options.keyDecodingStrategy {
-        case .useDefaultKeys:
-            self.container = container
-        case .convertFromSnakeCase:
-            // Convert the snake case keys in the container to camel case.
-            // If we hit a duplicate key after conversion, then we'll use the first one we saw. Effectively an undefined behavior with Dictionary dictionaries.
-            self.container = Dictionary(container.map {
-                key, value in (DictionaryDecoder.KeyDecodingStrategy._convertFromSnakeCase(key), value)
-            }, uniquingKeysWith: { (first, _) in first })
-        case .custom(let converter):
-            self.container = Dictionary(container.map {
-                key, value in (converter(decoder.codingPath + [DictionaryCodingKey(stringValue: key, intValue: nil)]).stringValue, value)
-            }, uniquingKeysWith: { (first, _) in first })
-        }
+        self.container = container
         self.codingPath = decoder.codingPath
     }
     
